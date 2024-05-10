@@ -1,0 +1,29 @@
+Bootstrap: docker
+From: mambaorg/micromamba:bookworm-slim
+
+%arguments
+    LANG=python
+    CONDA_FILE=environment.yml
+    PIP_FILE=requirements.txt
+    CRAN_FILE=install.R
+
+%setup
+    mkdir $APPTAINER_ROOTFS/project
+    mkdir $APPTAINER_ROOTFS/scratch
+    mkdir $APPTAINER_ROOTFS/nearline
+    if [ -f {{ CONDA_FILE }} ]; then cp {{ CONDA_FILE }} $APPTAINER_ROOTFS/environment.yml; fi
+    if [ -f {{ PIP_FILE }} ]; then cp {{ PIP_FILE }} $APPTAINER_ROOTFS/requirements.txt; fi
+    if [ -f {{ CRAN_FILE }} ]; then cp {{ CRAN_FILE }} $APPTAINER_ROOTFS/install.R; fi
+
+%post
+    KERNEL='ipykernel'
+    if [ "{{ LANG }}" = "r" ]; then KERNEL='r-irkernel jupyter'; fi
+    micromamba install -y -q -n base -c conda-forge ${KERNEL}
+    if [ -f /environment.yml ]; then micromamba install -y -q -n base -f /environment.yml; fi
+    if [ -f /requirements.txt ]; then micromamba run -n base python -m pip install -r /requirements.txt; fi
+    if [ -f /install.R ]; then micromamba run -n base Rscript -e "chooseCRANmirror(graphics=FALSE,ind=1);source('install.R')"; fi
+    micromamba clean --all --yes
+
+%labels
+    Author kellen.malek@ubc.ca
+    Version v0.0.1
