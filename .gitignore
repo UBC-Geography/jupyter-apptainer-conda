@@ -1,5 +1,6 @@
 env
 tmp
+build-temp-*
 .ipynb_checkpoints
 *.ipynb
 *.sif

@@ -16,9 +16,9 @@ From: mambaorg/micromamba:bookworm-slim
     if [ -f {{ CRAN_FILE }} ]; then cp {{ CRAN_FILE }} $APPTAINER_ROOTFS/install.R; fi
 
 %post
-    KERNEL='ipykernel'
-    if [ "{{ LANG }}" = "r" ]; then KERNEL='r-irkernel jupyter'; fi
-    micromamba install -y -q -n base -c conda-forge ${KERNEL}
+    KERNEL='python=3.11 ipykernel'
+    if [ "{{ LANG }}" = "r" ]; then KERNEL='r-base=4.3.3 r-irkernel'; fi
+    micromamba install -y -q -n base -c conda-forge ${KERNEL} jupyter
     if [ -f /environment.yml ]; then micromamba install -y -q -n base -f /environment.yml; fi
     if [ -f /requirements.txt ]; then micromamba run -n base python -m pip install -r /requirements.txt; fi
     if [ -f /install.R ]; then micromamba run -n base Rscript -e "chooseCRANmirror(graphics=FALSE,ind=1);source('install.R')"; fi

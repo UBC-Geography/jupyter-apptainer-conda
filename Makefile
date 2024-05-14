@@ -18,16 +18,15 @@ PROJECT_SLUG=$(notdir $(shell pwd))
 PROJECT_DIR:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 ENV?=$(PROJECT_DIR)/env
 
-apptainer_cmd = "apptainer","run","-B","/localscratch:/localscratch"
+kernel_cmd = "apptainer","run","-B","/localscratch:/localscratch", $(ENV)
 
-jupyter: apptainer_cmd = "apptainer","run"
+jupyter: kernel_cmd = "micromamba", "run", "-n", "base"
 
 ifeq ($(LANG),r)
 define KERNEL =
 {
     "argv": [
-		$(apptainer_cmd),
-        "$(ENV)",
+		$(kernel_cmd),
        	"R",
     	"--slave",
     	"-e",
@@ -43,8 +42,7 @@ else
 define KERNEL =
 {
     "argv": [
-		$(apptainer_cmd),
-        "$(ENV)",
+		$(kernel_cmd),
         "python",
         "-m",
         "ipykernel_launcher",
@@ -74,13 +72,20 @@ else
 endif
 
 ## Remove the project's container
-remove_env:
+remove_env: remove_kernel
 ifneq (,$(wildcard $(ENV)))
 	rm -rf $(ENV)
 else
 	@echo Container does not exist
 endif
 
+## Export a clean environment.yml file by removing ipykernel and jupyter first then re-installing them
+export_env:
+	apptainer run --writable $(ENV) micromamba remove -y ipykernel jupyter
+	apptainer run $(ENV) micromamba env export --no-build > environment.yml
+	apptainer run --writable $(ENV) micromamba install -y -q --freeze-installed ipykernel jupyter
+
+## Generate Jupyter kernel directories
 setup_kernel: create_env
 ifeq ($(LANG),r)
 	apptainer run $(ENV) Rscript \
@@ -93,13 +98,16 @@ endif
 ## Create a new Jupyter kernel using the project environment
 create_kernel: setup_kernel
 	$(file > tmp/share/jupyter/kernels/$(PROJECT_SLUG)/kernel.json,$(KERNEL))
-	jupyter kernelspec install tmp/share/jupyter/kernels/$(PROJECT_SLUG) --user
+	apptainer run $(ENV) jupyter kernelspec install tmp/share/jupyter/kernels/$(PROJECT_SLUG) --user
 	rm -rf tmp
 
 ## Remove the kernel from Jupyter
-remove_kernel: remove_env
-	jupyter kernelspec remove $(PROJECT_SLUG) -f
+remove_kernel:
+	apptainer run $(ENV) jupyter kernelspec remove $(PROJECT_SLUG) -f
 
 ## Run the kernel in a local Juyter environment
 jupyter: create_kernel
-	jupyter lab
+	apptainer run $(ENV) jupyter lab
+
+## Modify the following as needed to run clean up tasks
+clean: remove_env
